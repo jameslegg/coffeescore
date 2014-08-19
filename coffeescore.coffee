@@ -58,7 +58,7 @@ postMessage = (msg, notify) ->
         message: msg
         notify: notify,
         (data) ->
-            if data:
+            if data
                 console.log "Message send failed"
                 console.log data
 
