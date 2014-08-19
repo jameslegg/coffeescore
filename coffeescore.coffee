@@ -26,6 +26,8 @@ jsonRequest = (method, path, body, handler) ->
             res.on 'data', (chunk) ->
                 data += chunk
             res.on 'end', (chunk) ->
+                console.log "response got"
+                console.log data
                 if data
                     obj = JSON.parse data
                 else
@@ -38,34 +40,81 @@ jsonRequest = (method, path, body, handler) ->
 # Get recent messages from the room
 getRecent = (not_before, handler) ->
     target = "/v2/room/" + settings.roomId + "/history/latest?auth_token=" + settings.apiToken
-    target += '&not_before=' + not_before if not_before
+    target += '&not-before=' + not_before if not_before
     jsonRequest 'GET', target, null, handler
 
 # Look to see if anyone is offering a coffee
 checkForCoffees = (data) ->
+    console.log "checkForCoffees"
+    lastMessageSeen = data.items[data.items.length - 1].id
     for m in data.items
+        console.log m.message
+        continue if m.color  # Automated
+        console.log "not automated"
+        continue if m.id == lastMessageSeen
+        console.log "not last message"
         if m.message.indexOf 'spare @coffee' < 0
+            console.log "contains magic string"
             currentCoffee =
-                offeredBy:
-                    id: m.from.id
-                    name: m.from.mention_name
-            postMessage "@" + m.from.mention_name + " has a spare coffee. Reply '@coffee me' within the next three minutes if you'd like it", true
-            setTimeout 3 * 60 * 1000, coffeeExpired
+                requests: []
+                offeredBy: m.from
+            console.log "do coffee"
+            console.log m.from
+            postMessage "(coffee) @" + m.from.mention_name + " has a spare coffee. Reply '@coffee me' within the next three minutes if you'd like it", true
+            setTimeout coffeeExpired, 1 * 60 * 1000  # FIXME make 3 mins
+            return  # no more
 
 # Look for people who want the coffee that is on offer
-checkForRequests = ->
+checkForRequests = (data) ->
+    console.log "checkForRequests"
+    lastMessageSeen = data.items[data.items.length - 1].id
+    for m in data.items
+        console.log m.message
+        continue if m.color  # Automated
+        console.log "not automated"
+        continue if m.id == lastMessageSeen
+        console.log "not last message"
+        if m.message.indexOf '@coffee me' < 0
+            console.log "contains magic string 2"
+            currentCoffee.requests.push m.from
 
 # The three minutes has expired, choose a winner
 coffeeExpired = ->
     # Final sweep for any last-minute requests
     getRecent lastMessageSeen, checkForRequests
 
+    if not currentCoffee.requests
+        postMessage "(coffee) Aww, nobody wanted the lonely spare coffee", false
+        return
+
+    # Choose a winner FIXME not the first!
+    winner = currentCoffee.requests[0]
+
+    message = "(coffee) @" + winner.mention_name + " wins the coffee! ("
+    message += winner.mention_name + " "  + userScore(winner.id, -1) + ", -1"
+    message += "; " + currentCoffee.offeredBy.mention_name + " " + userScore(currentCoffee.offeredBy.id, +1) + ", +1"
+    for user in currentCoffee.requests
+        continue if user.id == winner.id
+        message += "; " + user.mention_name + " "  + userScore(user.id, -1)
+    message += ")"
+    postMessage message, false
+
     # All done, no longer offering coffee, go back to poll
     currentCoffee = null
+
+# Look up the score for user with ID <id> and alter it by <change> points.
+userScore = (id, change) ->
+    # FIXME
+    return 0
     
 # Main loop; get messages and either check for coffee offered or requested
 pollBoard = ->
-    handler = checkForRequests if currentCoffee else checkForCoffees
+    console.log "pollBoard"
+    console.log lastMessageSeen
+    if currentCoffee
+        handler = checkForRequests
+    else
+        handler = checkForCoffees
     getRecent lastMessageSeen, handler
 
 # Send a message to HipChat
@@ -73,7 +122,8 @@ postMessage = (msg, notify) ->
     target = "/v2/room/" + settings.roomId + "/notification?auth_token=" + settings.apiToken
     jsonRequest 'POST', target,
         message: msg
-        notify: notify,
+        notify: notify
+        message_format: 'text'
         (data) ->
             if data
                 console.log "Message send failed"
@@ -81,6 +131,5 @@ postMessage = (msg, notify) ->
 
 # Set the most recent message to avoid processing old content
 getRecent null, (data) ->
-    console.log data
-    lastMessageSeen = data.items[0].id
-#setInterval pollBoard, 60 * 1000  # 60 seconds
+    lastMessageSeen = data.items[data.items.length - 1].id
+setInterval pollBoard, 20 * 1000  # 60 seconds
