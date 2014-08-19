@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "sqlite3": "~2.2.7"
+  }
+}

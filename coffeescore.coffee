@@ -1,37 +1,38 @@
-https = require 'https'
-json = require 'json'
-url = require 'url'
+https = require "https"
+url = require "url"
+
+urlbase = "https://api.hipchat.com/v2/"
 
 settings =
-    apiToken: ''
+    apiToken: ""
     roomId: 12345
 
-addQueryParams = (base, params) ->
-    urlBase = url.parse base, true
-    # Merge in
-    urlBase.query[k] = params[k] for k of params
-    return url.format urlBase
+jsonRequest = (method, path, body, handler) ->
+    opts =
+        method: method
+        hostname: "api.hipchat.com"
+        path: path
+    if body?
+        opts.headers =
+            "Content-Type": "application/json"
+    req = https.request opts, (res) ->
+            data = ''
+            res.on 'data', (chunk) ->
+                data += chunk
+            res.on 'end', (chunk) ->
+                if data
+                    obj = JSON.parse data
+                else
+                    obj = null
+                handler obj
 
+    req.write JSON.stringify body if body?
+    req.end()
 
-jsonRequest = (url, handler) ->
-    https.get targetURL, handler (res) ->
-        data = ''
-        res.on 'data', (chunk) ->
-            data += chunk
-        res.on 'end', (chunk) ->
-            obj = json.parse data
-            handler data
-
-getRecent = (handler) ->
-    targetURL = addQueryParams 'https://api.hipchat.com/v1/rooms/history',
-        auth_token: settings.apiToken
-        room_id: settings.roomId
-        date: 'recent'
-        format: 'json'
-    console.log targetURL
-
-    jsonRequest targetURL, handler
-
+getRecent = (not_before, handler) ->
+    target = "/v2/room/" + settings.roomId + "/notification?auth_token=" + settings.apiToken
+    target += '&not_before=' + not_before if not_before
+    jsonRequest 'GET', targetURL, null, handler
 
 handleRecent = (data) ->
     for m in data.messages
@@ -49,9 +50,21 @@ checkIfExpired = () ->
 
 pollBoard = ->
     getRecent handleRecent
-    checkIfExpired()
+
+
+postMessage = (msg, notify) ->
+    target = "/v2/room/" + settings.roomId + "/notification?auth_token=" + settings.apiToken
+    jsonRequest 'POST', target,
+        message: msg
+        notify: notify,
+        (data) ->
+            if data:
+                console.log "Message send failed"
+                console.log data
+
     
 
 
-setInterval pollBoard, 60 * 1000
-pollBoard()
+#setInterval pollBoard, 60 * 1000
+#pollBoard()
+postMessage 'Testing', false
