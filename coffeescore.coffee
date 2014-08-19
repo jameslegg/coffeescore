@@ -37,9 +37,9 @@ jsonRequest = (method, path, body, handler) ->
 
 # Get recent messages from the room
 getRecent = (not_before, handler) ->
-    target = "/v2/room/" + settings.roomId + "/notification?auth_token=" + settings.apiToken
+    target = "/v2/room/" + settings.roomId + "/history/latest?auth_token=" + settings.apiToken
     target += '&not_before=' + not_before if not_before
-    jsonRequest 'GET', targetURL, null, handler
+    jsonRequest 'GET', target, null, handler
 
 # Look to see if anyone is offering a coffee
 checkForCoffees = (data) ->
