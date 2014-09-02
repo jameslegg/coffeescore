@@ -1,3 +1,4 @@
+NODE = nodejs
 NPM = npm
 DEPS = node_modules/sqlite3
 
@@ -7,7 +8,7 @@ node_modules/%:
 	$(NPM) install
 
 run: all
-	nodejs coffeescore.js
+	$(NODE) coffeescore.js
 
 %.js: %.coffee
 	coffee -bc $<
