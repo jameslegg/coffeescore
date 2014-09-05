@@ -84,11 +84,11 @@ messageWinner = ->
 
     # Get all scores
     lookups = {}
-    for user in currentCoffee.requests
-        u = user
-        lookups[u.id] = (callback) ->
-            userScore u, 0, (err, data) ->
-                callback err, data["score"]
+    for u in currentCoffee.requests
+        do (u) ->
+            lookups[u.id] = (callback) ->
+                userScore u, 0, (err, data) ->
+                    callback err, data["score"]
 
     async.parallel lookups, (err, scores) ->
 
