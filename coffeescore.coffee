@@ -36,6 +36,10 @@ jsonRequest = (method, path, body, handler) ->
                     obj = null
                 handler obj
 
+    req.on "error", (e) ->
+        console.log "Error: " + e.message
+        console.log e.stack
+
     req.write JSON.stringify body if body?
     req.end()
 
